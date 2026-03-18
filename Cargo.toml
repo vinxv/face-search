@@ -1,0 +1,22 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+ort = "2.0.0-rc.12"
+lancedb = "=0.11.0"
+arrow = "52.2.0"
+arrow-array = "52.2.0"
+arrow-schema = "52.2.0"
+image = "0.24"
+nalgebra = "0.32"
+ndarray = "0.17"
+serde = { version = "1.0", features = ["derive"] }
+reqwest = { version = "0.11", features = ["blocking"] }
+anyhow = "1.0"
+uuid = { version = "1.6", features = ["v4"] }
+walkdir = "2.4"
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+futures = "0.3"
