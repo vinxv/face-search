@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::vision::retinaface::{nms, FaceBox};
+    use crate::vision::scrfd::{nms, FaceBox};
 
     #[test]
     fn test_nms() {

@@ -1,4 +1,5 @@
 mod cli;
+mod config;
 mod db;
 mod models;
 mod vision;
@@ -6,6 +7,7 @@ mod vision;
 use anyhow::Result;
 use clap::Parser;
 use cli::{Cli, Commands};
+use config::Config;
 use image::io::Reader as ImageReader;
 use walkdir::WalkDir;
 
@@ -13,24 +15,35 @@ use walkdir::WalkDir;
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Attempt to load configuration
+    let cfg = match Config::load(&cli.config) {
+        Ok(c) => c,
+        Err(e) => {
+            println!("Failed to load config {}: {}", cli.config, e);
+            println!("Please ensure config.toml exists in your working directory.");
+            return Ok(());
+        }
+    };
+
     match cli.command {
-        Commands::Init { models_dir } => {
+        Commands::Init => {
+            let models_dir = &cfg.models.base_dir;
             println!("Initializing models in {}", models_dir);
-            std::fs::create_dir_all(&models_dir)?;
-            models::download_models(&models_dir).await?;
+            std::fs::create_dir_all(models_dir)?;
+            models::download_models(models_dir).await?;
             println!("Initialization complete.");
         }
-        Commands::Index {
-            image,
-            dir,
-            models_dir,
-        } => {
-            let retina_path = format!("{}/retinaface.onnx", models_dir);
-            let arcface_path = format!("{}/arcface.onnx", models_dir);
-            let mut retinaface = vision::retinaface::RetinaFace::new(&retina_path)?;
-            let mut arcface = vision::arcface::ArcFace::new(&arcface_path)?;
+        Commands::Index { image, dir } => {
+            let det_path = format!("{}/{}", cfg.models.base_dir, cfg.models.detection.file);
+            let rec_path = format!("{}/{}", cfg.models.base_dir, cfg.models.recognition.file);
+            let mut scrfd = vision::scrfd::Scrfd::new(
+                &det_path,
+                cfg.models.detection.conf_threshold,
+                cfg.models.detection.nms_threshold,
+            )?;
+            let mut arcface = vision::arcface::ArcFace::new(&rec_path)?;
 
-            let db = db::Database::new("./lance_db").await?;
+            let db = db::Database::new(&cfg.database.uri).await?;
             db.create_table().await?;
 
             let mut paths = Vec::new();
@@ -66,7 +79,7 @@ async fn main() -> Result<()> {
                     }
                 };
 
-                let faces = match retinaface.detect(&img) {
+                let faces = match scrfd.detect(&img) {
                     Ok(f) => f,
                     Err(e) => {
                         println!("Detection failed {}: {}", path, e);
@@ -81,20 +94,20 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        Commands::Search {
-            image,
-            top_k,
-            models_dir,
-        } => {
-            let retina_path = format!("{}/retinaface.onnx", models_dir);
-            let arcface_path = format!("{}/arcface.onnx", models_dir);
-            let mut retinaface = vision::retinaface::RetinaFace::new(&retina_path)?;
-            let mut arcface = vision::arcface::ArcFace::new(&arcface_path)?;
+        Commands::Search { image, top_k } => {
+            let det_path = format!("{}/{}", cfg.models.base_dir, cfg.models.detection.file);
+            let rec_path = format!("{}/{}", cfg.models.base_dir, cfg.models.recognition.file);
+            let mut scrfd = vision::scrfd::Scrfd::new(
+                &det_path,
+                cfg.models.detection.conf_threshold,
+                cfg.models.detection.nms_threshold,
+            )?;
+            let mut arcface = vision::arcface::ArcFace::new(&rec_path)?;
 
-            let db = db::Database::new("./lance_db").await?;
+            let db = db::Database::new(&cfg.database.uri).await?;
 
             let img = ImageReader::open(&image)?.decode()?;
-            let mut faces = retinaface.detect(&img)?;
+            let mut faces = scrfd.detect(&img)?;
 
             if faces.is_empty() {
                 println!("No face found in query image.");

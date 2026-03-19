@@ -1,7 +1,6 @@
 pub mod alignment;
-pub mod anchors;
 pub mod arcface;
-pub mod retinaface;
+pub mod scrfd;
 
 #[cfg(test)]
 mod tests_distance;

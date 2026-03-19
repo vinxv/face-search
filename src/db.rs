@@ -1,4 +1,4 @@
-use crate::vision::retinaface::FaceBox;
+use crate::vision::scrfd::FaceBox;
 use anyhow::Result;
 use arrow_array::{
     Array, FixedSizeListArray, Float32Array, RecordBatch, RecordBatchIterator, StringArray,
